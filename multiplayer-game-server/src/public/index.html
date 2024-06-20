@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            display: block;
+            background-color: #333;
+            margin: 0 auto;
+        }
+        #status, #instructions, #scoreboard {
+            text-align: center;
+            margin: 10px;
+        }
+        #scoreboard {
+            margin-top: 20px;
+        }
+        #scoreboard ul {
+            list-style: none;
+            padding: 0;
+        }
+        #scoreboard li {
+            color: #fff;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="status">Status: Disconnected</h1>
+    <div id="instructions">
+        <p>Use the arrow keys to move your player.</p>
+        <button onclick="startGame()">Start Game</button>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="scoreboard">
+        <h2>Scoreboard</h2>
+        <ul id="playersList"></ul>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusSpan = document.getElementById('status');
+        const playersList = document.getElementById('playersList');
+        let ws;
+        let playerId;
+        const players = {};
+
+        const playerColors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A6', '#A633FF', '#33FFD7'];
+
+        function startGame() {
+            ws = new WebSocket('ws://localhost:3000');
+
+            ws.onopen = function() {
+                statusSpan.textContent = 'Status: Connected';
+                console.log('WebSocket connection established');
+            };
+
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                switch (message.type) {
+                    case 'welcome':
+                        playerId = message.id;
+                        Object.assign(players, message.players);
+                        updateScoreboard();
+                        break;
+                    case 'update':
+                        players[message.id] = { x: message.x, y: message.y, color: players[message.id]?.color || playerColors[Math.floor(Math.random() * playerColors.length)] };
+                        draw();
+                        break;
+                    case 'remove':
+                        delete players[message.id];
+                        updateScoreboard();
+                        draw();
+                        break;
+                }
+            };
+
+            ws.onclose = function() {
+                statusSpan.textContent = 'Status: Disconnected';
+                console.log('WebSocket is closed
