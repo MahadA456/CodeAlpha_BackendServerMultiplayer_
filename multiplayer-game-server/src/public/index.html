@@ -87,4 +87,48 @@
 
             ws.onclose = function() {
                 statusSpan.textContent = 'Status: Disconnected';
-                console.log('WebSocket is closed
+                console.log('WebSocket is closed now.');
+            };
+
+            ws.onerror = function(error) {
+                console.log('WebSocket Error:', error);
+            };
+        }
+
+        function move(dx, dy) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'move', id: playerId, dx, dy }));
+            }
+        }
+
+        window.addEventListener('keydown', function(event) {
+            switch (event.key) {
+                case 'ArrowUp': move(0, -10); break;
+                case 'ArrowDown': move(0, 10); break;
+                case 'ArrowLeft': move(-10, 0); break;
+                case 'ArrowRight': move(10, 0); break;
+            }
+        });
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (const id in players) {
+                const player = players[id];
+                ctx.fillStyle = player.color;
+                ctx.fillRect(player.x, player.y, 20, 20);
+            }
+        }
+
+        function updateScoreboard() {
+            playersList.innerHTML = '';
+            for (const id in players) {
+                const player = players[id];
+                const listItem = document.createElement('li');
+                listItem.textContent = `Player ${id}`;
+                listItem.style.color = player.color;
+                playersList.appendChild(listItem);
+            }
+        }
+    </script>
+</body>
+</html>
