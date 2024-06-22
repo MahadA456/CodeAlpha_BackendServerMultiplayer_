@@ -1,4 +1,3 @@
-// src/app.js
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -15,6 +14,7 @@ const players = {};
 const items = generateItems();
 const obstacles = generateObstacles();
 const projectiles = [];
+const powerUps = generatePowerUps();
 const waitingPlayers = [];
 let nextPlayerId = 1;
 let gameTimer;
@@ -26,7 +26,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // User database (in-memory for simplicity)
 const users = [];
 
-// Generate items and obstacles
+// Generate items, obstacles, and power-ups
 function generateItems() {
     let items = [];
     for (let i = 0; i < 10; i++) {
@@ -41,6 +41,14 @@ function generateObstacles() {
         obstacles.push({ x: Math.random() * 780, y: Math.random() * 580, width: 50, height: 50 });
     }
     return obstacles;
+}
+
+function generatePowerUps() {
+    let powerUps = [];
+    for (let i = 0; i < 5; i++) {
+        powerUps.push({ x: Math.random() * 780, y: Math.random() * 580, type: 'speed' });  // Example power-up type
+    }
+    return powerUps;
 }
 
 // Authentication routes
@@ -78,6 +86,9 @@ wss.on('connection', (ws) => {
             case 'shoot':
                 shootProjectile(data);
                 break;
+            case 'chat':
+                handleChat(data);
+                break;
         }
     });
 
@@ -108,7 +119,8 @@ function startMatch(player1, player2) {
     const gamePlayers = { [player1.id]: player1, [player2.id]: player2 };
     const gameItems = generateItems();
     const gameObstacles = generateObstacles();
-    sendToPlayers(gamePlayers, { type: 'startGame', players: gamePlayers, items: gameItems, obstacles: gameObstacles });
+    const gamePowerUps = generatePowerUps();
+    sendToPlayers(gamePlayers, { type: 'startGame', players: gamePlayers, items: gameItems, obstacles: gameObstacles, powerUps: gamePowerUps });
 }
 
 function movePlayer(data) {
@@ -118,6 +130,7 @@ function movePlayer(data) {
         player.y += data.dy;
         checkItemCollision(player);
         checkObstacleCollision(player);
+        checkPowerUpCollision(player);
         sendToPlayersInGame(player.gameId, { type: 'update', id: player.id, x: player.x, y: player.y, score: player.score });
     }
 }
@@ -129,6 +142,10 @@ function shootProjectile(data) {
         projectiles.push(projectile);
         sendToPlayersInGame(player.gameId, { type: 'projectile', projectile });
     }
+}
+
+function handleChat(data) {
+    sendToPlayersInGame(data.gameId, { type: 'chat', message: data.message, username: data.username });
 }
 
 function removePlayer(ws) {
@@ -171,6 +188,19 @@ function checkObstacleCollision(player) {
                 sendToPlayersInGame(player.gameId, { type: 'gameOver', winner: player.id === 1 ? 2 : 1 });
             }
             sendToPlayersInGame(player.gameId, { type: 'updateHealth', id: player.id, health: player.health });
+        }
+    });
+}
+
+function checkPowerUpCollision(player) {
+    const powerUps = player.gamePowerUps;
+    powerUps.forEach((powerUp, index) => {
+        if (Math.abs(player.x - powerUp.x) < 20 && Math.abs(player.y - powerUp.y) < 20) {
+            if (powerUp.type === 'speed') {
+                player.speed += 2;  // Example effect
+            }
+            powerUps.splice(index, 1);
+            sendToPlayersInGame(player.gameId, { type: 'removePowerUp', index });
         }
     });
 }
